@@ -199,29 +199,29 @@ export function PnlCalculator() {
   const pnlPrefix = pnl !== null && pnl > 0 ? "+" : "";
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-2">
+    <div className="grid grid-cols-1 gap-3 md:gap-4 lg:grid-cols-2 lg:gap-6">
       <Card className="w-full">
-        <CardHeader className="p-4 pb-2">
-          <CardTitle>Inputs</CardTitle>
+        <CardHeader className="p-3 md:p-4 pb-2">
+          <CardTitle className="text-lg md:text-xl">Inputs</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-3 p-4 pt-0">
+        <CardContent className="flex flex-col gap-2 md:gap-3 p-3 md:p-4 pt-0">
           <div className="space-y-1">
-            <Label>Position</Label>
+            <Label className="text-sm">Position</Label>
             <Tabs
               defaultValue="long"
               onValueChange={(value) => setPositionType(value as "long" | "short")}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted/40 p-1">
+              <TabsList className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted/40 p-1 h-8 md:h-10">
                 <TabsTrigger
                   value="long"
-                  className="data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
+                  className="text-xs md:text-sm data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
                 >
                   Long
                 </TabsTrigger>
                 <TabsTrigger
                   value="short"
-                  className="data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
+                  className="text-xs md:text-sm data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
                 >
                   Short
                 </TabsTrigger>
@@ -229,9 +229,9 @@ export function PnlCalculator() {
             </Tabs>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 md:gap-4">
             <div className="space-y-1">
-              <Label htmlFor="entryPrice">Entry Price (USDT)</Label>
+              <Label htmlFor="entryPrice" className="text-xs md:text-sm">Entry Price (USDT)</Label>
               <Input
                 id="entryPrice"
                 type="number"
@@ -240,10 +240,11 @@ export function PnlCalculator() {
                 onChange={(e) => setEntryPrice(e.target.value)}
                 onFocus={() => handleInputFocus('entryPrice')}
                 min="0"
+                className="h-8 md:h-10 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="marketPrice">Market Price (USDT)</Label>
+              <Label htmlFor="marketPrice" className="text-xs md:text-sm">Market Price (USDT)</Label>
               <Input
                 id="marketPrice"
                 type="number"
@@ -252,10 +253,11 @@ export function PnlCalculator() {
                 onChange={(e) => setMarketPrice(e.target.value)}
                 onFocus={() => handleInputFocus('marketPrice')}
                 min="0"
+                className="h-8 md:h-10 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="leverage">Leverage (x)</Label>
+              <Label htmlFor="leverage" className="text-xs md:text-sm">Leverage (x)</Label>
               <Input
                 id="leverage"
                 type="number"
@@ -264,10 +266,11 @@ export function PnlCalculator() {
                 onChange={(e) => setLeverage(e.target.value)}
                 onFocus={() => handleInputFocus('leverage')}
                 min="0"
+                className="h-8 md:h-10 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="margin">Margin (USDT)</Label>
+              <Label htmlFor="margin" className="text-xs md:text-sm">Margin (USDT)</Label>
               <Input
                 id="margin"
                 type="number"
@@ -276,12 +279,14 @@ export function PnlCalculator() {
                 onChange={(e) => setMargin(e.target.value)}
                 onFocus={() => handleInputFocus('margin')}
                 min="0"
+                className="h-8 md:h-10 text-sm"
               />
             </div>
           </div>
-          <div className="pt-3">
-            <div className="space-y-1 rounded-md border border-border/70 p-3 bg-muted/40">
-             <div className="flex items-center justify-between text-sm">
+          
+          <div className="pt-1 md:pt-3">
+            <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3 bg-muted/40">
+             <div className="flex items-center justify-between text-xs md:text-sm">
                 <span className="text-muted-foreground">Total Size:</span>
                 <span className="font-semibold">{totalSize.toLocaleString()} USDT</span>
              </div>
@@ -292,32 +297,32 @@ export function PnlCalculator() {
       </Card>
 
       <Card className="w-full">
-        <CardHeader className="p-4 pb-2">
-          <CardTitle>Result</CardTitle>
+        <CardHeader className="p-3 md:p-4 pb-2">
+          <CardTitle className="text-lg md:text-xl">Result</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 p-4 pt-0">
-          <div className="flex flex-col items-center justify-center space-y-1 rounded-lg bg-muted p-3">
-            <p className="text-sm text-muted-foreground">PnL</p>
+        <CardContent className="space-y-2 p-3 md:p-4 pt-0">
+          <div className="flex flex-col items-center justify-center space-y-1 rounded-lg bg-muted p-2 md:p-3">
+            <p className="text-xs md:text-sm text-muted-foreground">PnL</p>
             {loading ? (
-              <Loader2 className="h-10 w-10 animate-spin" />
+              <Loader2 className="h-8 w-8 md:h-10 md:w-10 animate-spin" />
             ) : (
               <p
                 key={animationKey}
-                className={`text-4xl font-bold ${pnlColor} transition-colors duration-300 animate-in fade-in`}
+                className={`text-2xl md:text-4xl font-bold ${pnlColor} transition-colors duration-300 animate-in fade-in`}
               >
                 {pnl !== null ? `${pnlPrefix}${pnl.toFixed(2)}` : "-.--"}
               </p>
             )}
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {roi !== null ? `ROI: ${roi.toFixed(2)}%` : 'ROI: -.--%'}
             </p>
           </div>
           
-          <div className="space-y-1 rounded-md border border-border/70 p-3">
-            <div className="flex items-center justify-between text-sm">
+          <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3">
+            <div className="flex items-center justify-between text-xs md:text-sm">
                 <span className="text-muted-foreground">Key values:</span>
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs pt-1">
+            <div className="grid grid-cols-2 gap-x-2 md:gap-x-4 gap-y-1 text-xs pt-1">
               <div className="flex justify-between border-b border-dashed pb-1">
                 <span className="text-muted-foreground">Entry Price:</span>
                 <span className="font-semibold">{entryPrice}</span>
@@ -337,7 +342,7 @@ export function PnlCalculator() {
             </div>
           </div>
           
-          <div className="h-40">
+          <div className="h-24 md:h-40">
             <PnlChart
               data={chartData}
               pnl={pnl}
