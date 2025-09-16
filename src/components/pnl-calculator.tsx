@@ -16,7 +16,6 @@ import { Loader2 } from "lucide-react";
 import { PnlChart } from "./pnl-chart";
 import { Badge } from "@/components/ui/badge";
 
-// Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -35,7 +34,6 @@ type ChartData = {
   pnl: number;
 };
 
-// Function to safely evaluate the formula
 const evaluateFormula = (
   formula: string,
   values: {
@@ -53,8 +51,6 @@ const evaluateFormula = (
       .replace(/leverage/g, String(leverage))
       .replace(/margin/g, String(margin));
 
-    // A safer way to evaluate mathematical expressions without using eval()
-    // This relies on Function constructor, which is sandboxed.
     const result = new Function(`return ${formulaWithValues}`)();
     return Number(result);
   } catch (error) {
@@ -76,7 +72,13 @@ export function PnlCalculator() {
   const [animationKey, setAnimationKey] = useState(0);
   const [chartData, setChartData] = useState<ChartData[]>([]);
 
-  // Debounce input values
+  const [inputsFocused, setInputsFocused] = useState({
+    entryPrice: false,
+    marketPrice: false,
+    leverage: false,
+    margin: false,
+  });
+
   const debouncedEntryPrice = useDebounce(entryPrice, 500);
   const debouncedMarketPrice = useDebounce(marketPrice, 500);
   const debouncedLeverage = useDebounce(leverage, 500);
@@ -122,8 +124,6 @@ export function PnlCalculator() {
 
     setLoading(true);
 
-    // Using a short timeout to ensure the loader is visible for a moment
-    // which provides better UX, showing that a calculation happened.
     setTimeout(() => {
       try {
         const newPnl = evaluateFormula(formula, {
@@ -138,7 +138,7 @@ export function PnlCalculator() {
         setAnimationKey((prev) => prev + 1);
 
         const priceRange = mp - ep;
-        const steps = 20; // Increased steps for a smoother chart
+        const steps = 20;
         const step = priceRange / (steps - 1);
 
         const data: ChartData[] = Array.from({ length: steps }, (_, i) => {
@@ -165,13 +165,34 @@ export function PnlCalculator() {
       } finally {
         setLoading(false);
       }
-    }, 100); // Small delay for UX
+    }, 100);
 
   }, [debouncedEntryPrice, debouncedMarketPrice, debouncedLeverage, debouncedMargin, formula]);
 
   useEffect(() => {
     calculatePnl();
   }, [calculatePnl]);
+
+  const handleInputFocus = (inputName: keyof typeof inputsFocused) => {
+    if (!inputsFocused[inputName]) {
+      setInputsFocused(prev => ({ ...prev, [inputName]: true }));
+      
+      switch (inputName) {
+        case 'entryPrice':
+          setEntryPrice('');
+          break;
+        case 'marketPrice':
+          setMarketPrice('');
+          break;
+        case 'leverage':
+          setLeverage('');
+          break;
+        case 'margin':
+          setMargin('');
+          break;
+      }
+    }
+  };
 
   const pnlColor =
     pnl === null ? "text-foreground" : pnl >= 0 ? "text-green-500" : "text-red-500";
@@ -217,6 +238,7 @@ export function PnlCalculator() {
                 placeholder="e.g., 40000"
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
+                onFocus={() => handleInputFocus('entryPrice')}
                 min="0"
               />
             </div>
@@ -228,6 +250,7 @@ export function PnlCalculator() {
                 placeholder="e.g., 42000"
                 value={marketPrice}
                 onChange={(e) => setMarketPrice(e.target.value)}
+                onFocus={() => handleInputFocus('marketPrice')}
                 min="0"
               />
             </div>
@@ -239,6 +262,7 @@ export function PnlCalculator() {
                 placeholder="e.g., 10"
                 value={leverage}
                 onChange={(e) => setLeverage(e.target.value)}
+                onFocus={() => handleInputFocus('leverage')}
                 min="0"
               />
             </div>
@@ -250,6 +274,7 @@ export function PnlCalculator() {
                 placeholder="e.g., 1000"
                 value={margin}
                 onChange={(e) => setMargin(e.target.value)}
+                onFocus={() => handleInputFocus('margin')}
                 min="0"
               />
             </div>
