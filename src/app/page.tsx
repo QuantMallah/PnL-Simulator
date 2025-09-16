@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background p-2 md:p-4 lg:p-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-4 md:mb-8 text-center">
+        <div className="my-4 md:my-8 text-center">
           <h1 className="text-2xl md:text-4xl lg:text-6xl font-bold tracking-tight text-foreground">
             Trade PnL Simulator
           </h1>
