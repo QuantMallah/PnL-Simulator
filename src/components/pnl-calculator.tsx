@@ -212,16 +212,16 @@ export function PnlCalculator() {
               onValueChange={(value) => setPositionType(value as "long" | "short")}
               className="w-full"
             >
-              <TabsList className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted/40 p-1 h-8 md:h-10">
+              <TabsList className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted/40 p-1 h-8 md:h-10 gap-1">
                 <TabsTrigger
                   value="long"
-                  className="text-xs md:text-sm data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
+                  className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60"
                 >
                   Long
                 </TabsTrigger>
                 <TabsTrigger
                   value="short"
-                  className="text-xs md:text-sm data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-muted/40 data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400"
+                  className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60"
                 >
                   Short
                 </TabsTrigger>
