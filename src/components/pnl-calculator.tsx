@@ -85,7 +85,7 @@ export function PnlCalculator() {
   const debouncedMargin = useDebounce(margin, 500);
 
   const formula = useMemo(() => {
-    const baseFormula = `* (leverage * margin / marketPrice)`;
+    const baseFormula = `* (leverage * margin / entryPrice)`;
     if (positionType === "long") {
       return `(marketPrice - entryPrice)` + baseFormula;
     } else {
