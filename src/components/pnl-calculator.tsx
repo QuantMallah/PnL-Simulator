@@ -342,11 +342,8 @@ export function PnlCalculator() {
       <Card className="w-full">
         <CardHeader className="p-3 md:p-4 pb-2">
           <CardTitle className="text-lg md:text-xl">Inputs</CardTitle>
-          <CardDescription className="text-xs text-muted-foreground">
-            Entry Price is primary - other parameters auto-calculate
-          </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col gap-2 md:gap-3 p-3 md:p-4 pt-0">
+        <CardContent className="flex flex-col gap-2 md:gap-3 p-3 md:p-4 !pt-0">
           <div className="space-y-1">
             <Label className="text-sm">Position</Label>
             <Tabs
@@ -488,13 +485,21 @@ export function PnlCalculator() {
           </div>
           
           <div className="pt-1 md:pt-2">
-            <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3 bg-muted/20">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Last changed:</span>
-                <Badge variant="outline" className="text-[9px] px-2 py-0 capitalize">
+            <div className="relative overflow-hidden rounded-lg border border-border/50 bg-gradient-to-r from-muted/30 via-muted/20 to-muted/30 p-3 md:p-3 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                  <span className="text-xs font-medium text-muted-foreground">Last changed</span>
+                </div>
+                <Badge 
+                  variant="secondary" 
+                  className="text-[10px] px-2.5 py-0.5 font-semibold capitalize bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 shadow-sm"
+                >
                   {lastChanged.replace(/([A-Z])/g, ' $1').toLowerCase()}
                 </Badge>
               </div>
+              {/* Subtle decorative element */}
+              <div className="absolute top-0 right-0 h-full w-1 bg-gradient-to-b from-green-400/50 via-green-500/30 to-green-600/50"></div>
             </div>
           </div>
 
