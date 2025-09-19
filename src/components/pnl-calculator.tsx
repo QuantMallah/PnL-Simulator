@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
+import { Loader2, Settings2 } from "lucide-react";
 import { PnlChart } from "./pnl-chart";
 import { Badge } from "@/components/ui/badge";
 
@@ -60,10 +60,20 @@ const evaluateFormula = (
 };
 
 export function PnlCalculator() {
+  // Primary inputs (always manual)
   const [entryPrice, setEntryPrice] = useState("0.011");
   const [marketPrice, setMarketPrice] = useState("0.07701");
+  
+  // Auto-changeable parameters
   const [quantity, setQuantity] = useState("11909");
+  const [totalSize, setTotalSize] = useState("130.999");
   const [margin, setMargin] = useState("18");
+  const [leverage, setLeverage] = useState("7.3");
+  
+  // Track which parameter was last changed
+  const [lastChanged, setLastChanged] = useState<'quantity' | 'totalSize' | 'margin' | 'leverage'>('quantity');
+  
+  // Other states
   const [pnl, setPnl] = useState<number | null>(null);
   const [roi, setRoi] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,15 +85,19 @@ export function PnlCalculator() {
     entryPrice: false,
     marketPrice: false,
     quantity: false,
+    totalSize: false,
     margin: false,
+    leverage: false,
   });
 
-  const debouncedEntryPrice = useDebounce(entryPrice, 500);
-  const debouncedMarketPrice = useDebounce(marketPrice, 500);
-  const debouncedQuantity = useDebounce(quantity, 500);
-  const debouncedMargin = useDebounce(margin, 500);
+  const debouncedEntryPrice = useDebounce(entryPrice, 300);
+  const debouncedMarketPrice = useDebounce(marketPrice, 300);
+  const debouncedQuantity = useDebounce(quantity, 300);
+  const debouncedTotalSize = useDebounce(totalSize, 300);
+  const debouncedMargin = useDebounce(margin, 300);
+  const debouncedLeverage = useDebounce(leverage, 300);
 
-  // Updated formula to use quantity directly (Binance-style)
+  // Formula for PnL calculation
   const formula = useMemo(() => {
     if (positionType === "long") {
       return `(marketPrice - entryPrice) * quantity`;
@@ -92,20 +106,77 @@ export function PnlCalculator() {
     }
   }, [positionType]);
 
-  // Notional position size (what Binance shows as "Size USDT")
-  const notionalSize = useMemo(() => {
-    const ep = parseFloat(entryPrice);
-    const qty = parseFloat(quantity);
-    if (isNaN(ep) || isNaN(qty)) return 0;
-    return ep * qty;
-  }, [entryPrice, quantity]);
+  // Auto-calculation logic
+  useEffect(() => {
+    const ep = parseFloat(debouncedEntryPrice);
+    const qty = parseFloat(debouncedQuantity);
+    const ts = parseFloat(debouncedTotalSize);
+    const mar = parseFloat(debouncedMargin);
+    const lev = parseFloat(debouncedLeverage);
 
-  // Effective leverage calculation
-  const effectiveLeverage = useMemo(() => {
-    const mar = parseFloat(margin);
-    if (isNaN(mar) || mar <= 0 || notionalSize <= 0) return 0;
-    return notionalSize / mar;
-  }, [notionalSize, margin]);
+    // Skip if entry price is invalid
+    if (isNaN(ep) || ep <= 0) return;
+
+    // Skip if currently focused on any input to avoid interrupting user typing
+    const anyFocused = Object.values(inputsFocused).some(focused => focused);
+    if (anyFocused) return;
+
+    try {
+      switch (lastChanged) {
+        case 'quantity':
+          if (!isNaN(qty) && qty > 0) {
+            // Calculate Total Size = Entry Price × Quantity
+            const newTotalSize = ep * qty;
+            setTotalSize(newTotalSize.toFixed(6));
+            
+            // Calculate Leverage or Margin (prefer maintaining leverage if margin is reasonable)
+            if (!isNaN(mar) && mar > 0) {
+              const newLeverage = newTotalSize / mar;
+              setLeverage(newLeverage.toFixed(3));
+            } else if (!isNaN(lev) && lev > 0) {
+              const newMargin = newTotalSize / lev;
+              setMargin(newMargin.toFixed(6));
+            }
+          }
+          break;
+
+        case 'totalSize':
+          if (!isNaN(ts) && ts > 0) {
+            // Calculate Quantity = Total Size / Entry Price
+            const newQuantity = ts / ep;
+            setQuantity(newQuantity.toFixed(0));
+            
+            // Calculate Leverage or Margin
+            if (!isNaN(mar) && mar > 0) {
+              const newLeverage = ts / mar;
+              setLeverage(newLeverage.toFixed(3));
+            } else if (!isNaN(lev) && lev > 0) {
+              const newMargin = ts / lev;
+              setMargin(newMargin.toFixed(6));
+            }
+          }
+          break;
+
+        case 'margin':
+          if (!isNaN(mar) && mar > 0 && !isNaN(ts) && ts > 0) {
+            // Calculate Leverage = Total Size / Initial Margin
+            const newLeverage = ts / mar;
+            setLeverage(newLeverage.toFixed(3));
+          }
+          break;
+
+        case 'leverage':
+          if (!isNaN(lev) && lev > 0 && !isNaN(ts) && ts > 0) {
+            // Calculate Initial Margin = Total Size / Leverage
+            const newMargin = ts / lev;
+            setMargin(newMargin.toFixed(6));
+          }
+          break;
+      }
+    } catch (error) {
+      console.error("Error in auto-calculation:", error);
+    }
+  }, [debouncedQuantity, debouncedTotalSize, debouncedMargin, debouncedLeverage, debouncedEntryPrice, lastChanged, inputsFocused]);
 
   const calculatePnl = useCallback(async () => {
     const ep = parseFloat(debouncedEntryPrice);
@@ -144,12 +215,12 @@ export function PnlCalculator() {
         setAnimationKey((prev) => prev + 1);
 
         // Generate chart data with more reasonable price range
-        const priceRange = Math.abs(mp - ep) * 2; // Expand range around current prices
+        const priceRange = Math.abs(mp - ep) * 2;
         const centerPrice = (mp + ep) / 2;
         const minPrice = Math.max(0.000001, centerPrice - priceRange);
         const maxPrice = centerPrice + priceRange;
         
-        const steps = 48; // Reduced to make room for exact points
+        const steps = 48;
         const step = (maxPrice - minPrice) / (steps - 1);
 
         // Generate regular chart data
@@ -170,7 +241,7 @@ export function PnlCalculator() {
         // Calculate exact PnL for entry and market prices
         const entryPnl = evaluateFormula(formula, {
           entryPrice: ep,
-          marketPrice: ep, // At entry, PnL should be 0
+          marketPrice: ep,
           quantity: qty,
         });
         
@@ -184,14 +255,14 @@ export function PnlCalculator() {
         data.push({
           marketPrice: parseFloat(ep.toFixed(8)),
           pnl: parseFloat(entryPnl.toFixed(2)),
-          isEntry: true // Flag for identification
+          isEntry: true
         } as any);
         
         // Add exact current market point
         data.push({
           marketPrice: parseFloat(mp.toFixed(8)),
           pnl: parseFloat(currentPnl.toFixed(2)),
-          isMarket: true // Flag for identification
+          isMarket: true
         } as any);
 
         // Sort by price and remove near-duplicates
@@ -200,7 +271,6 @@ export function PnlCalculator() {
           .sort((a, b) => a.marketPrice - b.marketPrice)
           .filter((item, index, array) => {
             if (index === 0) return true;
-            // Keep if it's an exact point or far enough from previous
             return (item as any).isEntry || (item as any).isMarket || 
                    Math.abs(item.marketPrice - array[index - 1].marketPrice) > 0.000001;
           });
@@ -224,9 +294,10 @@ export function PnlCalculator() {
   }, [calculatePnl]);
 
   const handleInputFocus = (inputName: keyof typeof inputsFocused) => {
-    if (!inputsFocused[inputName]) {
-      setInputsFocused(prev => ({ ...prev, [inputName]: true }));
-      
+    setInputsFocused(prev => ({ ...prev, [inputName]: true }));
+    
+    // Clear the field when focused for the first time
+    setTimeout(() => {
       switch (inputName) {
         case 'entryPrice':
           setEntryPrice('');
@@ -237,15 +308,33 @@ export function PnlCalculator() {
         case 'quantity':
           setQuantity('');
           break;
+        case 'totalSize':
+          setTotalSize('');
+          break;
         case 'margin':
           setMargin('');
           break;
+        case 'leverage':
+          setLeverage('');
+          break;
       }
-    }
+    }, 50);
   };
 
-  const pnlColor =
-    pnl === null ? "text-foreground" : pnl >= 0 ? "text-green-500" : "text-red-500";
+  const handleInputBlur = (inputName: keyof typeof inputsFocused) => {
+    setInputsFocused(prev => ({ ...prev, [inputName]: false }));
+  };
+
+  const handleParameterChange = (
+    parameter: 'quantity' | 'totalSize' | 'margin' | 'leverage',
+    value: string,
+    setValue: (value: string) => void
+  ) => {
+    setValue(value);
+    setLastChanged(parameter);
+  };
+
+  const pnlColor = pnl === null ? "text-foreground" : pnl >= 0 ? "text-green-500" : "text-red-500";
   const pnlPrefix = pnl !== null && pnl > 0 ? "+" : "";
 
   return (
@@ -253,6 +342,9 @@ export function PnlCalculator() {
       <Card className="w-full">
         <CardHeader className="p-3 md:p-4 pb-2">
           <CardTitle className="text-lg md:text-xl">Inputs</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Entry Price is primary - other parameters auto-calculate
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2 md:gap-3 p-3 md:p-4 pt-0">
           <div className="space-y-1">
@@ -263,88 +355,145 @@ export function PnlCalculator() {
               className="w-full"
             >
               <TabsList className="grid w-full grid-cols-2 rounded-lg border border-border bg-muted/40 p-[0.2rem] h-8 md:h-10 gap-1">
-                <TabsTrigger
-                  value="long"
-                  className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60"
-                >
+                <TabsTrigger value="long" className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-green-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60">
                   Long
                 </TabsTrigger>
-                <TabsTrigger
-                  value="short"
-                  className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60"
-                >
+                <TabsTrigger value="short" className="w-full h-full flex items-center justify-center text-xs md:text-sm font-medium rounded-md px-0 py-0 m-0 data-[state=active]:bg-red-600 data-[state=active]:text-white data-[state=inactive]:bg-transparent data-[state=inactive]:text-slate-500 dark:data-[state=active]:bg-red-600 dark:data-[state=active]:text-white dark:data-[state=inactive]:text-slate-400 data-[state=active]:shadow-sm transition-all hover:data-[state=inactive]:bg-muted/60">
                   Short
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
+          {/* Primary Inputs (Always Manual) */}
           <div className="grid grid-cols-2 gap-2 md:gap-4">
             <div className="space-y-1">
-              <Label htmlFor="entryPrice" className="text-xs md:text-sm">Entry Price (USDT)</Label>
+              <Label htmlFor="entryPrice" className="text-xs md:text-sm font-medium flex items-center gap-1">
+                Entry Price (USDT)
+                <Badge variant="outline" className="text-[9px] px-1 py-0">PRIMARY</Badge>
+              </Label>
               <Input
                 id="entryPrice"
                 type="number"
-                placeholder="e.g., 0.000846"
+                placeholder="e.g., 0.011"
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
                 onFocus={() => handleInputFocus('entryPrice')}
+                onBlur={() => handleInputBlur('entryPrice')}
                 min="0"
                 step="any"
-                className="h-8 md:h-10 text-sm"
+                className="h-8 md:h-10 text-sm border-blue-200 focus:border-blue-500"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="marketPrice" className="text-xs md:text-sm">Market Price (USDT)</Label>
+              <Label htmlFor="marketPrice" className="text-xs md:text-sm font-medium">Market Price (USDT)</Label>
               <Input
                 id="marketPrice"
                 type="number"
-                placeholder="e.g., 0.000339"
+                placeholder="e.g., 0.07701"
                 value={marketPrice}
                 onChange={(e) => setMarketPrice(e.target.value)}
                 onFocus={() => handleInputFocus('marketPrice')}
+                onBlur={() => handleInputBlur('marketPrice')}
                 min="0"
                 step="any"
-                className="h-8 md:h-10 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="quantity" className="text-xs md:text-sm">Quantity (Coins)</Label>
-              <Input
-                id="quantity"
-                type="number"
-                placeholder="e.g., 1000000"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                onFocus={() => handleInputFocus('quantity')}
-                min="0"
-                className="h-8 md:h-10 text-sm"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="margin" className="text-xs md:text-sm">Initial Margin (USDT)</Label>
-              <Input
-                id="margin"
-                type="number"
-                placeholder="e.g., 18"
-                value={margin}
-                onChange={(e) => setMargin(e.target.value)}
-                onFocus={() => handleInputFocus('margin')}
-                min="0"
                 className="h-8 md:h-10 text-sm"
               />
             </div>
           </div>
-          
-          <div className="pt-1 md:pt-3">
-            <div className="space-y-2 rounded-md border border-border/70 p-2 md:p-3 bg-muted/40">
-              <div className="flex items-center justify-between text-xs md:text-sm">
-                <span className="text-muted-foreground">Total Size:</span>
-                <span className="font-semibold">{notionalSize.toFixed(2)} USDT</span>
+
+          {/* Auto-Changeable Parameters */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-xs md:text-sm text-muted-foreground">Auto-Calculated Parameters</Label>
+              <Settings2 className="h-3 w-3 text-muted-foreground" />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 md:gap-4">
+              <div className="space-y-1">
+                <Label htmlFor="quantity" className="text-xs md:text-sm flex items-center gap-1">
+                  Quantity (Coins)
+                  {lastChanged !== 'quantity' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                </Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  placeholder="e.g., 11909"
+                  value={quantity}
+                  onChange={(e) => handleParameterChange('quantity', e.target.value, setQuantity)}
+                  onFocus={() => handleInputFocus('quantity')}
+                  onBlur={() => handleInputBlur('quantity')}
+                  min="0"
+                  className={`h-8 md:h-10 text-sm ${lastChanged === 'quantity' ? 'border-green-200 bg-green-50/50' : 'bg-muted/30'}`}
+                />
               </div>
-              <div className="flex items-center justify-between text-xs md:text-sm">
-                <span className="text-muted-foreground">Leverage:</span>
-                <span className="font-semibold">{effectiveLeverage.toFixed(1)}x</span>
+              
+              <div className="space-y-1">
+                <Label htmlFor="totalSize" className="text-xs md:text-sm flex items-center gap-1">
+                  Total Size (USDT)
+                  {lastChanged !== 'totalSize' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                </Label>
+                <Input
+                  id="totalSize"
+                  type="number"
+                  placeholder="e.g., 130.999"
+                  value={totalSize}
+                  onChange={(e) => handleParameterChange('totalSize', e.target.value, setTotalSize)}
+                  onFocus={() => handleInputFocus('totalSize')}
+                  onBlur={() => handleInputBlur('totalSize')}
+                  min="0"
+                  step="any"
+                  className={`h-8 md:h-10 text-sm ${lastChanged === 'totalSize' ? 'border-green-200 bg-green-50/50' : 'bg-muted/30'}`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="margin" className="text-xs md:text-sm flex items-center gap-1">
+                  Initial Margin (USDT)
+                  {lastChanged !== 'margin' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                </Label>
+                <Input
+                  id="margin"
+                  type="number"
+                  placeholder="e.g., 18"
+                  value={margin}
+                  onChange={(e) => handleParameterChange('margin', e.target.value, setMargin)}
+                  onFocus={() => handleInputFocus('margin')}
+                  onBlur={() => handleInputBlur('margin')}
+                  min="0"
+                  step="any"
+                  className={`h-8 md:h-10 text-sm ${lastChanged === 'margin' ? 'border-green-200 bg-green-50/50' : 'bg-muted/30'}`}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="leverage" className="text-xs md:text-sm flex items-center gap-1">
+                  Leverage
+                  {lastChanged !== 'leverage' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                </Label>
+                <Input
+                  id="leverage"
+                  type="number"
+                  placeholder="e.g., 7.3"
+                  value={leverage}
+                  onChange={(e) => handleParameterChange('leverage', e.target.value, setLeverage)}
+                  onFocus={() => handleInputFocus('leverage')}
+                  onBlur={() => handleInputBlur('leverage')}
+                  min="0"
+                  step="0.1"
+                  className={`h-8 md:h-10 text-sm ${lastChanged === 'leverage' ? 'border-green-200 bg-green-50/50' : 'bg-muted/30'}`}
+                />
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-1 md:pt-2">
+            <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3 bg-muted/20">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Last changed:</span>
+                <Badge variant="outline" className="text-[9px] px-2 py-0 capitalize">
+                  {lastChanged.replace(/([A-Z])/g, ' $1').toLowerCase()}
+                </Badge>
               </div>
             </div>
           </div>
@@ -352,6 +501,7 @@ export function PnlCalculator() {
         </CardContent>
       </Card>
 
+      {/* Result Card remains the same */}
       <Card className="w-full">
         <CardHeader className="p-3 md:p-4 pb-2">
           <CardTitle className="text-lg md:text-xl">Result</CardTitle>
@@ -376,7 +526,7 @@ export function PnlCalculator() {
           
           <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3">
             <div className="flex items-center justify-between text-xs md:text-sm">
-                <span className="text-muted-foreground">Key values:</span>
+                <span className="text-muted-foreground">Current values:</span>
             </div>
             <div className="grid grid-cols-2 gap-x-2 md:gap-x-4 gap-y-1 text-xs pt-1">
               <div className="flex justify-between border-b border-dashed pb-1">
@@ -392,8 +542,16 @@ export function PnlCalculator() {
                 <span className="font-semibold">{quantity}</span>
               </div>
               <div className="flex justify-between border-b border-dashed pb-1">
+                <span className="text-muted-foreground">Total Size:</span>
+                <span className="font-semibold">{totalSize}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-1">
                 <span className="text-muted-foreground">Margin:</span>
                 <span className="font-semibold">{margin}</span>
+              </div>
+              <div className="flex justify-between border-b border-dashed pb-1">
+                <span className="text-muted-foreground">Leverage:</span>
+                <span className="font-semibold">{leverage}x</span>
               </div>
             </div>
           </div>
