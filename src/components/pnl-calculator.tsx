@@ -32,6 +32,8 @@ function useDebounce<T>(value: T, delay: number): T {
 type ChartData = {
   marketPrice: number;
   pnl: number;
+  isEntry?: boolean;
+  isMarket?: boolean;
 };
 
 const evaluateFormula = (
@@ -39,17 +41,15 @@ const evaluateFormula = (
   values: {
     entryPrice: number;
     marketPrice: number;
-    leverage: number;
-    margin: number;
+    quantity: number;
   }
 ): number => {
   try {
-    const { entryPrice, marketPrice, leverage, margin } = values;
+    const { entryPrice, marketPrice, quantity } = values;
     const formulaWithValues = formula
       .replace(/marketPrice/g, String(marketPrice))
       .replace(/entryPrice/g, String(entryPrice))
-      .replace(/leverage/g, String(leverage))
-      .replace(/margin/g, String(margin));
+      .replace(/quantity/g, String(quantity));
 
     const result = new Function(`return ${formulaWithValues}`)();
     return Number(result);
@@ -59,12 +59,11 @@ const evaluateFormula = (
   }
 };
 
-
 export function PnlCalculator() {
-  const [entryPrice, setEntryPrice] = useState("41000");
-  const [marketPrice, setMarketPrice] = useState("42500");
-  const [leverage, setLeverage] = useState("10");
-  const [margin, setMargin] = useState("1000");
+  const [entryPrice, setEntryPrice] = useState("0.011");
+  const [marketPrice, setMarketPrice] = useState("0.07701");
+  const [quantity, setQuantity] = useState("11909");
+  const [margin, setMargin] = useState("18");
   const [pnl, setPnl] = useState<number | null>(null);
   const [roi, setRoi] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -75,44 +74,52 @@ export function PnlCalculator() {
   const [inputsFocused, setInputsFocused] = useState({
     entryPrice: false,
     marketPrice: false,
-    leverage: false,
+    quantity: false,
     margin: false,
   });
 
   const debouncedEntryPrice = useDebounce(entryPrice, 500);
   const debouncedMarketPrice = useDebounce(marketPrice, 500);
-  const debouncedLeverage = useDebounce(leverage, 500);
+  const debouncedQuantity = useDebounce(quantity, 500);
   const debouncedMargin = useDebounce(margin, 500);
 
+  // Updated formula to use quantity directly (Binance-style)
   const formula = useMemo(() => {
-    const baseFormula = `* (leverage * margin / entryPrice)`;
     if (positionType === "long") {
-      return `(marketPrice - entryPrice)` + baseFormula;
+      return `(marketPrice - entryPrice) * quantity`;
     } else {
-      return `(entryPrice - marketPrice)` + baseFormula;
+      return `(entryPrice - marketPrice) * quantity`;
     }
   }, [positionType]);
 
-  const totalSize = useMemo(() => {
-    const lev = parseFloat(leverage);
+  // Notional position size (what Binance shows as "Size USDT")
+  const notionalSize = useMemo(() => {
+    const ep = parseFloat(entryPrice);
+    const qty = parseFloat(quantity);
+    if (isNaN(ep) || isNaN(qty)) return 0;
+    return ep * qty;
+  }, [entryPrice, quantity]);
+
+  // Effective leverage calculation
+  const effectiveLeverage = useMemo(() => {
     const mar = parseFloat(margin);
-    if (isNaN(lev) || isNaN(mar)) return 0;
-    return lev * mar;
-  }, [leverage, margin]);
+    if (isNaN(mar) || mar <= 0 || notionalSize <= 0) return 0;
+    return notionalSize / mar;
+  }, [notionalSize, margin]);
 
   const calculatePnl = useCallback(async () => {
     const ep = parseFloat(debouncedEntryPrice);
     const mp = parseFloat(debouncedMarketPrice);
-    const lev = parseFloat(debouncedLeverage);
+    const qty = parseFloat(debouncedQuantity);
     const mar = parseFloat(debouncedMargin);
 
     if (
       isNaN(ep) ||
       isNaN(mp) ||
-      isNaN(lev) ||
+      isNaN(qty) ||
       isNaN(mar) ||
       mp <= 0 ||
-      lev <= 0 ||
+      qty <= 0 ||
       mar <= 0 ||
       ep <= 0
     ) {
@@ -129,33 +136,76 @@ export function PnlCalculator() {
         const newPnl = evaluateFormula(formula, {
           entryPrice: ep,
           marketPrice: mp,
-          leverage: lev,
-          margin: mar,
+          quantity: qty,
         });
 
         setPnl(newPnl);
         setRoi((newPnl / mar) * 100);
         setAnimationKey((prev) => prev + 1);
 
-        const priceRange = mp - ep;
-        const steps = 20;
-        const step = priceRange / (steps - 1);
+        // Generate chart data with more reasonable price range
+        const priceRange = Math.abs(mp - ep) * 2; // Expand range around current prices
+        const centerPrice = (mp + ep) / 2;
+        const minPrice = Math.max(0.000001, centerPrice - priceRange);
+        const maxPrice = centerPrice + priceRange;
+        
+        const steps = 48; // Reduced to make room for exact points
+        const step = (maxPrice - minPrice) / (steps - 1);
 
+        // Generate regular chart data
         const data: ChartData[] = Array.from({ length: steps }, (_, i) => {
-          const currentMarketPrice = ep + (step * i);
+          const currentMarketPrice = minPrice + (step * i);
           if (currentMarketPrice <= 0) return { marketPrice: 0, pnl: 0 };
           const pnlValue = evaluateFormula(formula, {
             entryPrice: ep,
             marketPrice: currentMarketPrice,
-            leverage: lev,
-            margin: mar,
+            quantity: qty,
           });
           return {
-            marketPrice: parseFloat(currentMarketPrice.toFixed(2)),
+            marketPrice: parseFloat(currentMarketPrice.toFixed(8)),
             pnl: parseFloat(pnlValue.toFixed(2)),
           };
         });
-        setChartData(data.filter(d => d.marketPrice > 0));
+
+        // Calculate exact PnL for entry and market prices
+        const entryPnl = evaluateFormula(formula, {
+          entryPrice: ep,
+          marketPrice: ep, // At entry, PnL should be 0
+          quantity: qty,
+        });
+        
+        const currentPnl = evaluateFormula(formula, {
+          entryPrice: ep,
+          marketPrice: mp,
+          quantity: qty,
+        });
+
+        // Add exact entry point
+        data.push({
+          marketPrice: parseFloat(ep.toFixed(8)),
+          pnl: parseFloat(entryPnl.toFixed(2)),
+          isEntry: true // Flag for identification
+        } as any);
+        
+        // Add exact current market point
+        data.push({
+          marketPrice: parseFloat(mp.toFixed(8)),
+          pnl: parseFloat(currentPnl.toFixed(2)),
+          isMarket: true // Flag for identification
+        } as any);
+
+        // Sort by price and remove near-duplicates
+        const sortedData = data
+          .filter(d => d.marketPrice > 0)
+          .sort((a, b) => a.marketPrice - b.marketPrice)
+          .filter((item, index, array) => {
+            if (index === 0) return true;
+            // Keep if it's an exact point or far enough from previous
+            return (item as any).isEntry || (item as any).isMarket || 
+                   Math.abs(item.marketPrice - array[index - 1].marketPrice) > 0.000001;
+          });
+        
+        setChartData(sortedData);
 
       } catch (error) {
         console.error("Error calculating PnL:", error);
@@ -167,7 +217,7 @@ export function PnlCalculator() {
       }
     }, 100);
 
-  }, [debouncedEntryPrice, debouncedMarketPrice, debouncedLeverage, debouncedMargin, formula]);
+  }, [debouncedEntryPrice, debouncedMarketPrice, debouncedQuantity, debouncedMargin, formula]);
 
   useEffect(() => {
     calculatePnl();
@@ -184,8 +234,8 @@ export function PnlCalculator() {
         case 'marketPrice':
           setMarketPrice('');
           break;
-        case 'leverage':
-          setLeverage('');
+        case 'quantity':
+          setQuantity('');
           break;
         case 'margin':
           setMargin('');
@@ -235,11 +285,12 @@ export function PnlCalculator() {
               <Input
                 id="entryPrice"
                 type="number"
-                placeholder="e.g., 40000"
+                placeholder="e.g., 0.000846"
                 value={entryPrice}
                 onChange={(e) => setEntryPrice(e.target.value)}
                 onFocus={() => handleInputFocus('entryPrice')}
                 min="0"
+                step="any"
                 className="h-8 md:h-10 text-sm"
               />
             </div>
@@ -248,33 +299,34 @@ export function PnlCalculator() {
               <Input
                 id="marketPrice"
                 type="number"
-                placeholder="e.g., 42000"
+                placeholder="e.g., 0.000339"
                 value={marketPrice}
                 onChange={(e) => setMarketPrice(e.target.value)}
                 onFocus={() => handleInputFocus('marketPrice')}
                 min="0"
+                step="any"
                 className="h-8 md:h-10 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="leverage" className="text-xs md:text-sm">Leverage (x)</Label>
+              <Label htmlFor="quantity" className="text-xs md:text-sm">Quantity (Coins)</Label>
               <Input
-                id="leverage"
+                id="quantity"
                 type="number"
-                placeholder="e.g., 10"
-                value={leverage}
-                onChange={(e) => setLeverage(e.target.value)}
-                onFocus={() => handleInputFocus('leverage')}
+                placeholder="e.g., 1000000"
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+                onFocus={() => handleInputFocus('quantity')}
                 min="0"
                 className="h-8 md:h-10 text-sm"
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="margin" className="text-xs md:text-sm">Margin (USDT)</Label>
+              <Label htmlFor="margin" className="text-xs md:text-sm">Initial Margin (USDT)</Label>
               <Input
                 id="margin"
                 type="number"
-                placeholder="e.g., 1000"
+                placeholder="e.g., 18"
                 value={margin}
                 onChange={(e) => setMargin(e.target.value)}
                 onFocus={() => handleInputFocus('margin')}
@@ -285,11 +337,15 @@ export function PnlCalculator() {
           </div>
           
           <div className="pt-1 md:pt-3">
-            <div className="space-y-1 rounded-md border border-border/70 p-2 md:p-3 bg-muted/40">
-             <div className="flex items-center justify-between text-xs md:text-sm">
+            <div className="space-y-2 rounded-md border border-border/70 p-2 md:p-3 bg-muted/40">
+              <div className="flex items-center justify-between text-xs md:text-sm">
                 <span className="text-muted-foreground">Total Size:</span>
-                <span className="font-semibold">{totalSize.toLocaleString()} USDT</span>
-             </div>
+                <span className="font-semibold">{notionalSize.toFixed(2)} USDT</span>
+              </div>
+              <div className="flex items-center justify-between text-xs md:text-sm">
+                <span className="text-muted-foreground">Leverage:</span>
+                <span className="font-semibold">{effectiveLeverage.toFixed(1)}x</span>
+              </div>
             </div>
           </div>
 
@@ -332,12 +388,12 @@ export function PnlCalculator() {
                 <span className="font-semibold">{marketPrice}</span>
               </div>
               <div className="flex justify-between border-b border-dashed pb-1">
-                <span className="text-muted-foreground">Margin:</span>
-                <span className="font-semibold">{margin}</span>
+                <span className="text-muted-foreground">Quantity:</span>
+                <span className="font-semibold">{quantity}</span>
               </div>
               <div className="flex justify-between border-b border-dashed pb-1">
-                <span className="text-muted-foreground">Leverage:</span>
-                <span className="font-semibold">{leverage}x</span>
+                <span className="text-muted-foreground">Margin:</span>
+                <span className="font-semibold">{margin}</span>
               </div>
             </div>
           </div>
