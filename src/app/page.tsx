@@ -8,7 +8,7 @@ export default function Home() {
           <h1 className="text-2xl md:text-4xl lg:text-6xl font-bold tracking-tight text-foreground">
             Trade PnL Simulator
           </h1>
-          <p className="mt-2 md:mt-4 text-sm md:text-lg text-muted-foreground">
+          <p className="mt-2 md:mt-4 text-xs md:text-lg text-muted-foreground">
             Accurate step-by-step PnL using auto calculated parameters.
           </p>
         </div>
