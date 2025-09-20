@@ -365,8 +365,8 @@ export function PnlCalculator() {
           {/* Primary Inputs (Always Manual) */}
           <div className="grid grid-cols-2 gap-2 md:gap-4">
             <div className="space-y-1">
-              <Label htmlFor="entryPrice" className="text-xs md:text-sm font-medium flex items-center gap-1">
-                Entry Price (USDT)
+              <Label htmlFor="entryPrice" className="text-xs md:text-sm font-medium flex items-center justify-between min-h-[20px]">
+                <span>Entry Price (USDT)</span>
                 <Badge variant="outline" className="text-[9px] px-1 py-0">PRIMARY</Badge>
               </Label>
               <Input
@@ -383,7 +383,10 @@ export function PnlCalculator() {
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="marketPrice" className="text-xs md:text-sm font-medium">Market Price (USDT)</Label>
+              <Label htmlFor="marketPrice" className="text-xs md:text-sm font-medium flex items-center justify-between min-h-[20px]">
+                <span>Market Price (USDT)</span>
+                <div className="w-[1px]"></div> {/* Invisible placeholder for alignment */}
+              </Label>
               <Input
                 id="marketPrice"
                 type="number"
@@ -408,9 +411,13 @@ export function PnlCalculator() {
             
             <div className="grid grid-cols-2 gap-2 md:gap-4">
               <div className="space-y-1">
-                <Label htmlFor="quantity" className="text-xs md:text-sm flex items-center gap-1">
-                  Quantity (Coins)
-                  {lastChanged !== 'quantity' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                <Label htmlFor="quantity" className="text-xs md:text-sm flex items-center justify-between min-h-[20px]">
+                  <span>Quantity (Coins)</span>
+                  {lastChanged !== 'quantity' ? (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>
+                  ) : (
+                    <div className="w-[1px]"></div>
+                  )}
                 </Label>
                 <Input
                   id="quantity"
@@ -426,9 +433,13 @@ export function PnlCalculator() {
               </div>
               
               <div className="space-y-1">
-                <Label htmlFor="totalSize" className="text-xs md:text-sm flex items-center gap-1">
-                  Total Size (USDT)
-                  {lastChanged !== 'totalSize' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                <Label htmlFor="totalSize" className="text-xs md:text-sm flex items-center justify-between min-h-[20px]">
+                  <span>Total Size (USDT)</span>
+                  {lastChanged !== 'totalSize' ? (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>
+                  ) : (
+                    <div className="w-[1px]"></div>
+                  )}
                 </Label>
                 <Input
                   id="totalSize"
@@ -445,9 +456,13 @@ export function PnlCalculator() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="margin" className="text-xs md:text-sm flex items-center gap-1">
-                  Initial Margin (USDT)
-                  {lastChanged !== 'margin' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                <Label htmlFor="margin" className="text-xs md:text-sm flex items-center justify-between min-h-[20px]">
+                  <span>Initial Margin (USDT)</span>
+                  {lastChanged !== 'margin' ? (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>
+                  ) : (
+                    <div className="w-[1px]"></div>
+                  )}
                 </Label>
                 <Input
                   id="margin"
@@ -464,9 +479,13 @@ export function PnlCalculator() {
               </div>
 
               <div className="space-y-1">
-                <Label htmlFor="leverage" className="text-xs md:text-sm flex items-center gap-1">
-                  Leverage
-                  {lastChanged !== 'leverage' && <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>}
+                <Label htmlFor="leverage" className="text-xs md:text-sm flex items-center justify-between min-h-[20px]">
+                  <span>Leverage</span>
+                  {lastChanged !== 'leverage' ? (
+                    <Badge variant="secondary" className="text-[9px] px-1 py-0">AUTO</Badge>
+                  ) : (
+                    <div className="w-[1px]"></div>
+                  )}
                 </Label>
                 <Input
                   id="leverage"
